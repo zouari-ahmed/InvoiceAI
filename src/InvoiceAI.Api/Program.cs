@@ -1,14 +1,19 @@
+using InvoiceAI.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ---- 1. SERVICE REGISTRATION (the DI container) ----
+// ---- SERVICE REGISTRATION ----
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
+
 var app = builder.Build();
 
-// ---- 2. MIDDLEWARE PIPELINE (order matters here) ----
+// ---- MIDDLEWARE PIPELINE ----
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
