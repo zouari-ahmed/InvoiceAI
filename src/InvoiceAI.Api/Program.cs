@@ -1,18 +1,21 @@
 using System.Text;
 using InvoiceAI.Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using Scalar.AspNetCore;
 using Microsoft.OpenApi.Models;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ---- SERVICE REGISTRATION ----
 builder.Services.AddControllers();
+
 builder.Services.AddOpenApi(options =>
 {
+    // Declare that bearer tokens exist
     options.AddDocumentTransformer((document, context, ct) =>
     {
         document.Components ??= new OpenApiComponents();
@@ -27,20 +30,36 @@ builder.Services.AddOpenApi(options =>
             Description = "Paste your JWT here — do not type the word 'Bearer'."
         };
 
-        document.SecurityRequirements.Add(new OpenApiSecurityRequirement
+        return Task.CompletedTask;
+    });
+
+    // Require it ONLY where [Authorize] actually appears
+    options.AddOperationTransformer((operation, context, ct) =>
+    {
+        var requiresAuth = context.Description.ActionDescriptor.EndpointMetadata
+            .OfType<AuthorizeAttribute>()
+            .Any();
+
+        if (requiresAuth)
         {
+            operation.Security = new List<OpenApiSecurityRequirement>
             {
-                new OpenApiSecurityScheme
+                new()
                 {
-                    Reference = new OpenApiReference
                     {
-                        Type = ReferenceType.SecurityScheme,
-                        Id = "Bearer"
+                        new OpenApiSecurityScheme
+                        {
+                            Reference = new OpenApiReference
+                            {
+                                Type = ReferenceType.SecurityScheme,
+                                Id = "Bearer"
+                            }
+                        },
+                        Array.Empty<string>()
                     }
-                },
-                Array.Empty<string>()
-            }
-        });
+                }
+            };
+        }
 
         return Task.CompletedTask;
     });
@@ -86,12 +105,6 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-// ---- MIDDLEWARE PIPELINE (order matters) ----
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-    app.MapScalarApiReference();
-}
 // Ensure the Admin and User roles exist
 using (var scope = app.Services.CreateScope())
 {
@@ -101,6 +114,13 @@ using (var scope = app.Services.CreateScope())
         if (!await roleManager.RoleExistsAsync(role))
             await roleManager.CreateAsync(new IdentityRole(role));
     }
+}
+
+// ---- MIDDLEWARE PIPELINE (order matters) ----
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+    app.MapScalarApiReference();
 }
 
 app.UseHttpsRedirection();
