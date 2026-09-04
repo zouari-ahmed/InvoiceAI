@@ -1,11 +1,13 @@
 using System.Text;
 using InvoiceAI.Application;
 using InvoiceAI.Infrastructure.Data;
+using InvoiceAI.Infrastructure.Gemini;
 using InvoiceAI.Infrastructure.Storage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Scalar.AspNetCore;
@@ -97,6 +99,15 @@ builder.Services.AddAuthorization();
 
 var uploadRoot = Path.Combine(builder.Environment.ContentRootPath, "uploads");
 builder.Services.AddSingleton<IFileStorage>(_ => new LocalFileStorage(uploadRoot));
+
+builder.Services.Configure<GeminiOptions>(
+    builder.Configuration.GetSection(GeminiOptions.SectionName));
+
+builder.Services.AddHttpClient<IInvoiceExtractor, GeminiInvoiceExtractor>((sp, client) =>
+{
+    var gemini = sp.GetRequiredService<IOptions<GeminiOptions>>().Value;
+    client.Timeout = TimeSpan.FromSeconds(gemini.TimeoutSeconds);
+});
 
 var app = builder.Build();
 
