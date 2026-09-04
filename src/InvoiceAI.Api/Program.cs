@@ -1,4 +1,7 @@
+using System.Text;
+using InvoiceAI.Application;
 using InvoiceAI.Infrastructure.Data;
+using InvoiceAI.Infrastructure.Storage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -6,59 +9,50 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Scalar.AspNetCore;
-using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ---- SERVICE REGISTRATION ----
 builder.Services.AddControllers();
 
 builder.Services.AddOpenApi(options =>
 {
-    // Declare that bearer tokens exist
     options.AddDocumentTransformer((document, context, ct) =>
     {
         document.Components ??= new OpenApiComponents();
         document.Components.SecuritySchemes ??= new Dictionary<string, OpenApiSecurityScheme>();
-
         document.Components.SecuritySchemes["Bearer"] = new OpenApiSecurityScheme
         {
             Type = SecuritySchemeType.Http,
             Scheme = "bearer",
             BearerFormat = "JWT",
             In = ParameterLocation.Header,
-            Description = "Paste your JWT here - do not type the word 'Bearer'."
+            Description = "Paste only the raw JWT here. Scalar adds the word Bearer for you."
         };
-
         return Task.CompletedTask;
     });
 
-    // Require it ONLY where [Authorize] actually appears
     options.AddOperationTransformer((operation, context, ct) =>
     {
-        var requiresAuth = context.Description.ActionDescriptor.EndpointMetadata
+        var hasAuthorize = context.Description.ActionDescriptor.EndpointMetadata
             .OfType<AuthorizeAttribute>()
             .Any();
 
-        if (requiresAuth)
+        if (hasAuthorize)
         {
-            operation.Security = new List<OpenApiSecurityRequirement>
-            {
-                new()
+            operation.Security =
+            [
+                new OpenApiSecurityRequirement
                 {
+                    [new OpenApiSecurityScheme
                     {
-                        new OpenApiSecurityScheme
+                        Reference = new OpenApiReference
                         {
-                            Reference = new OpenApiReference
-                            {
-                                Type = ReferenceType.SecurityScheme,
-                                Id = "Bearer"
-                            }
-                        },
-                        Array.Empty<string>()
-                    }
+                            Type = ReferenceType.SecurityScheme,
+                            Id = "Bearer"
+                        }
+                    }] = Array.Empty<string>()
                 }
-            };
+            ];
         }
 
         return Task.CompletedTask;
@@ -68,7 +62,6 @@ builder.Services.AddOpenApi(options =>
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
 
-// Identity: users, password hashing, roles
 builder.Services.AddIdentity<AppUser, IdentityRole>(options =>
 {
     options.Password.RequiredLength = 8;
@@ -79,7 +72,6 @@ builder.Services.AddIdentity<AppUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<AppDbContext>()
 .AddDefaultTokenProviders();
 
-// JWT bearer authentication
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -103,20 +95,23 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
+var uploadRoot = Path.Combine(builder.Environment.ContentRootPath, "uploads");
+builder.Services.AddSingleton<IFileStorage>(_ => new LocalFileStorage(uploadRoot));
+
 var app = builder.Build();
 
-// Ensure the Admin and User roles exist
 using (var scope = app.Services.CreateScope())
 {
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
     foreach (var role in new[] { "Admin", "User" })
     {
         if (!await roleManager.RoleExistsAsync(role))
+        {
             await roleManager.CreateAsync(new IdentityRole(role));
+        }
     }
 }
 
-// ---- MIDDLEWARE PIPELINE (order matters) ----
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -124,10 +119,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
-app.UseAuthentication();   // WHO are you?
-app.UseAuthorization();    // WHAT are you allowed to do?
-
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
 
 app.Run();

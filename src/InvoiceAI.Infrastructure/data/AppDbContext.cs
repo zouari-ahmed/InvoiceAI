@@ -8,10 +8,10 @@ public class AppDbContext : IdentityDbContext<AppUser>
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
-    // Each DbSet becomes a table
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<InvoiceLineItem> InvoiceLineItems => Set<InvoiceLineItem>();
     public DbSet<Party> Parties => Set<Party>();
+    public DbSet<SourceFile> SourceFiles => Set<SourceFile>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -27,7 +27,6 @@ public class AppDbContext : IdentityDbContext<AppUser>
             entity.Property(i => i.VatAmount).HasPrecision(18, 3);
             entity.Property(i => i.Total).HasPrecision(18, 3);
 
-            // Store the enum as readable text, not an integer
             entity.Property(i => i.Status).HasConversion<string>().HasMaxLength(32);
 
             entity.HasIndex(i => i.InvoiceNumber);
@@ -41,6 +40,11 @@ public class AppDbContext : IdentityDbContext<AppUser>
             entity.HasOne(i => i.Customer)
                   .WithMany()
                   .HasForeignKey(i => i.CustomerId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(i => i.SourceFile)
+                  .WithMany()
+                  .HasForeignKey(i => i.SourceFileId)
                   .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasMany(i => i.LineItems)
@@ -65,8 +69,16 @@ public class AppDbContext : IdentityDbContext<AppUser>
             entity.Property(p => p.TaxId).HasMaxLength(64);
             entity.HasIndex(p => p.TaxId);
         });
+
+        modelBuilder.Entity<SourceFile>(entity =>
+        {
+            entity.Property(f => f.StorageKey).HasMaxLength(128).IsRequired();
+            entity.Property(f => f.OriginalFileName).HasMaxLength(256).IsRequired();
+            entity.Property(f => f.ContentType).HasMaxLength(128).IsRequired();
+            entity.HasIndex(f => f.StorageKey).IsUnique();
+        });
+
         // ---- SEED DATA ----
-        // HasData requires constant values: explicit Ids, no DateTime.UtcNow
         var seeded = new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<Party>().HasData(
@@ -108,9 +120,9 @@ public class AppDbContext : IdentityDbContext<AppUser>
         );
 
         modelBuilder.Entity<InvoiceLineItem>().HasData(
-            new InvoiceLineItem { Id = 1, InvoiceId = 1, Description = "Tôle acier galvanisé 2mm", Quantity = 50m, UnitPrice = 20.000m, VatRate = 19.00m, LineTotal = 1000.000m },
-            new InvoiceLineItem { Id = 2, InvoiceId = 1, Description = "Découpe laser sur mesure", Quantity = 5m, UnitPrice = 50.000m, VatRate = 19.00m, LineTotal = 250.000m },
-            new InvoiceLineItem { Id = 3, InvoiceId = 2, Description = "Abonnement fibre Pro — Août 2026", Quantity = 1m, UnitPrice = 89.000m, VatRate = 19.00m, LineTotal = 89.000m }
+            new InvoiceLineItem { Id = 1, InvoiceId = 1, Description = "Tole acier galvanise 2mm", Quantity = 50m, UnitPrice = 20.000m, VatRate = 19.00m, LineTotal = 1000.000m },
+            new InvoiceLineItem { Id = 2, InvoiceId = 1, Description = "Decoupe laser sur mesure", Quantity = 5m, UnitPrice = 50.000m, VatRate = 19.00m, LineTotal = 250.000m },
+            new InvoiceLineItem { Id = 3, InvoiceId = 2, Description = "Abonnement fibre Pro - Aout 2026", Quantity = 1m, UnitPrice = 89.000m, VatRate = 19.00m, LineTotal = 89.000m }
         );
     }
 }

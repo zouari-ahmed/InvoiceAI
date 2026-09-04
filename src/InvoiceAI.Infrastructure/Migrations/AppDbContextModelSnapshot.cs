@@ -51,6 +51,12 @@ namespace InvoiceAI.Infrastructure.Migrations
                     b.Property<DateOnly?>("IssueDate")
                         .HasColumnType("date");
 
+                    b.Property<string>("RawExtractionJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("SourceFileId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -79,6 +85,8 @@ namespace InvoiceAI.Infrastructure.Migrations
                     b.HasIndex("CustomerId");
 
                     b.HasIndex("InvoiceNumber");
+
+                    b.HasIndex("SourceFileId");
 
                     b.HasIndex("Status");
 
@@ -160,7 +168,7 @@ namespace InvoiceAI.Infrastructure.Migrations
                         new
                         {
                             Id = 1,
-                            Description = "Tôle acier galvanisé 2mm",
+                            Description = "Tole acier galvanise 2mm",
                             InvoiceId = 1,
                             LineTotal = 1000.000m,
                             Quantity = 50m,
@@ -170,7 +178,7 @@ namespace InvoiceAI.Infrastructure.Migrations
                         new
                         {
                             Id = 2,
-                            Description = "Découpe laser sur mesure",
+                            Description = "Decoupe laser sur mesure",
                             InvoiceId = 1,
                             LineTotal = 250.000m,
                             Quantity = 5m,
@@ -180,7 +188,7 @@ namespace InvoiceAI.Infrastructure.Migrations
                         new
                         {
                             Id = 3,
-                            Description = "Abonnement fibre Pro — Août 2026",
+                            Description = "Abonnement fibre Pro - Aout 2026",
                             InvoiceId = 2,
                             LineTotal = 89.000m,
                             Quantity = 1m,
@@ -244,6 +252,49 @@ namespace InvoiceAI.Infrastructure.Migrations
                             Name = "EDI Solutions",
                             TaxId = "7654321/C/M/000"
                         });
+                });
+
+            modelBuilder.Entity("InvoiceAI.Domain.Entities.SourceFile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<int?>("PageCount")
+                        .HasColumnType("int");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UploadedByUserId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StorageKey")
+                        .IsUnique();
+
+                    b.ToTable("SourceFiles");
                 });
 
             modelBuilder.Entity("InvoiceAI.Infrastructure.Data.AppUser", b =>
@@ -457,12 +508,19 @@ namespace InvoiceAI.Infrastructure.Migrations
                         .HasForeignKey("CustomerId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("InvoiceAI.Domain.Entities.SourceFile", "SourceFile")
+                        .WithMany()
+                        .HasForeignKey("SourceFileId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("InvoiceAI.Domain.Entities.Party", "Supplier")
                         .WithMany()
                         .HasForeignKey("SupplierId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Customer");
+
+                    b.Navigation("SourceFile");
 
                     b.Navigation("Supplier");
                 });
