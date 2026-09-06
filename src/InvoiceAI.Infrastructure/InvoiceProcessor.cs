@@ -13,17 +13,20 @@ public class InvoiceProcessor : IInvoiceProcessor
     private readonly AppDbContext _db;
     private readonly IFileStorage _storage;
     private readonly IInvoiceExtractor _extractor;
+    private readonly IPartyResolver _parties;
     private readonly ILogger<InvoiceProcessor> _logger;
 
     public InvoiceProcessor(
         AppDbContext db,
         IFileStorage storage,
         IInvoiceExtractor extractor,
+        IPartyResolver parties,
         ILogger<InvoiceProcessor> logger)
     {
         _db = db;
         _storage = storage;
         _extractor = extractor;
+        _parties = parties;
         _logger = logger;
     }
 
@@ -110,8 +113,11 @@ public class InvoiceProcessor : IInvoiceProcessor
             invoice.Currency = data.Currency.Trim().ToUpperInvariant();
         }
 
-        invoice.SupplierId = (await ResolvePartyAsync(data.Supplier, ct))?.Id;
-        invoice.CustomerId = (await ResolvePartyAsync(data.Customer, ct))?.Id;
+        invoice.SupplierId = await _parties.ResolveAsync(
+            data.Supplier?.Name, data.Supplier?.Address, data.Supplier?.TaxId, ct);
+
+        invoice.CustomerId = await _parties.ResolveAsync(
+            data.Customer?.Name, data.Customer?.Address, data.Customer?.TaxId, ct);
 
         _db.InvoiceLineItems.RemoveRange(invoice.LineItems);
         invoice.LineItems.Clear();
@@ -130,46 +136,6 @@ public class InvoiceProcessor : IInvoiceProcessor
                             ?? (line.Quantity ?? 0m) * (line.UnitPrice ?? 0m)
             });
         }
-    }
-
-    private async Task<Party?> ResolvePartyAsync(ExtractedPartyDto? dto, CancellationToken ct)
-    {
-        if (dto is null || string.IsNullOrWhiteSpace(dto.Name))
-        {
-            return null;
-        }
-
-        var name = dto.Name.Trim();
-        var taxId = string.IsNullOrWhiteSpace(dto.TaxId) ? null : dto.TaxId.Trim();
-
-        Party? existing = null;
-
-        if (taxId is not null)
-        {
-            existing = await _db.Parties.FirstOrDefaultAsync(p => p.TaxId == taxId, ct);
-        }
-
-        existing ??= await _db.Parties.FirstOrDefaultAsync(p => p.Name == name, ct);
-
-        if (existing is not null)
-        {
-            existing.TaxId ??= taxId;
-            existing.Address ??= dto.Address?.Trim();
-            return existing;
-        }
-
-        var created = new Party
-        {
-            Name = name,
-            Address = dto.Address?.Trim(),
-            TaxId = taxId,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        _db.Parties.Add(created);
-        await _db.SaveChangesAsync(ct);
-
-        return created;
     }
 
     private static DateOnly? ParseDate(string? value)

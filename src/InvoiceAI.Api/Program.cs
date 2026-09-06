@@ -112,6 +112,7 @@ builder.Services.AddHttpClient<IInvoiceExtractor, GeminiInvoiceExtractor>((sp, c
 
 builder.Services.AddSingleton<IExtractionQueue>(_ => new ExtractionQueue(500));
 builder.Services.AddScoped<IInvoiceProcessor, InvoiceProcessor>();
+builder.Services.AddScoped<IPartyResolver, PartyResolver>();
 builder.Services.AddHostedService<ExtractionBackgroundService>();
 
 var app = builder.Build();
