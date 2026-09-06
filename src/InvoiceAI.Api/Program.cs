@@ -1,7 +1,9 @@
 using System.Text;
+using InvoiceAI.Api;
 using InvoiceAI.Application;
 using InvoiceAI.Infrastructure.Data;
 using InvoiceAI.Infrastructure.Gemini;
+using InvoiceAI.Infrastructure.Processing;
 using InvoiceAI.Infrastructure.Storage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -63,7 +65,6 @@ builder.Services.AddOpenApi(options =>
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
-
 builder.Services.AddIdentity<AppUser, IdentityRole>(options =>
 {
     options.Password.RequiredLength = 8;
@@ -108,6 +109,10 @@ builder.Services.AddHttpClient<IInvoiceExtractor, GeminiInvoiceExtractor>((sp, c
     var gemini = sp.GetRequiredService<IOptions<GeminiOptions>>().Value;
     client.Timeout = TimeSpan.FromSeconds(gemini.TimeoutSeconds);
 });
+
+builder.Services.AddSingleton<IExtractionQueue>(_ => new ExtractionQueue(500));
+builder.Services.AddScoped<IInvoiceProcessor, InvoiceProcessor>();
+builder.Services.AddHostedService<ExtractionBackgroundService>();
 
 var app = builder.Build();
 
