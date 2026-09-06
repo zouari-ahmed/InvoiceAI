@@ -16,6 +16,16 @@ using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+const string WebCorsPolicy = "web";
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(WebCorsPolicy, policy =>
+        policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")
+              .AllowAnyHeader()
+              .AllowAnyMethod());
+});
+
 builder.Services.AddControllers();
 
 builder.Services.AddOpenApi(options =>
@@ -136,6 +146,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors(WebCorsPolicy);
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
