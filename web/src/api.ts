@@ -36,7 +36,6 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   return (await response.json()) as T;
 }
-
 export async function login(email: string, password: string) {
   const data = await request<{ token: string; email: string; roles: string[] }>(
     "/auth/login",
@@ -61,12 +60,30 @@ export function updateInvoice(id: number, body: unknown) {
   });
 }
 
+export function extractInvoice(id: number) {
+  return request<InvoiceSummary>(`/invoices/${id}/extract`, { method: "POST" });
+}
+
 export function uploadFiles(files: File[]) {
   const form = new FormData();
   files.forEach((f) => form.append("files", f));
-  return request<UploadResult>("/invoices/upload", { method: "POST", body: form });
+  return request<UploadResult>("/invoices/upload", {
+    method: "POST",
+    body: form,
+  });
 }
 
-export function fileUrl(id: number) {
-  return `${BASE}/invoices/${id}/file`;
+export async function fetchFileBlobUrl(id: number): Promise<string> {
+  const token = getToken();
+
+  const response = await fetch(`${BASE}/invoices/${id}/file`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+
+  if (!response.ok) {
+    throw new Error("Could not load the source document.");
+  }
+
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
 }

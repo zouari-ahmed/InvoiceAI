@@ -40,7 +40,6 @@ export default function Invoices() {
       {!loading && !error && rows.length === 0 && (
         <p className="muted">No invoices yet.</p>
       )}
-
       {rows.length > 0 && (
         <table>
           <thead>
@@ -54,7 +53,7 @@ export default function Invoices() {
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.id}>
+              <tr key={r.id} onClick={() => navigate(`/invoices/${r.id}`)}>
                 <td>{r.invoiceNumber ?? <span className="muted">—</span>}</td>
                 <td>{r.issueDate ?? <span className="muted">—</span>}</td>
                 <td>{r.supplierName ?? <span className="muted">—</span>}</td>
