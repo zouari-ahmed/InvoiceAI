@@ -18,6 +18,7 @@ export default function Review() {
 
   const [detail, setDetail] = useState<InvoiceDetail | null>(null);
   const [docUrl, setDocUrl] = useState<string | null>(null);
+  const [docNote, setDocNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -39,7 +40,7 @@ export default function Review() {
     let created: string | null = null;
 
     getInvoice(invoiceId)
-      .then((d) => {
+      .then(async (d) => {
         setDetail(d);
         setInvoiceNumber(d.invoiceNumber ?? "");
         setIssueDate(d.issueDate ?? "");
@@ -61,11 +62,19 @@ export default function Review() {
             lineTotal: l.lineTotal,
           }))
         );
-        return fetchFileBlobUrl(invoiceId);
-      })
-      .then((url) => {
-        created = url;
-        setDocUrl(url);
+
+        if (!d.originalFileName) {
+          setDocNote("This record has no scanned document.");
+          return;
+        }
+
+        try {
+          const url = await fetchFileBlobUrl(invoiceId);
+          created = url;
+          setDocUrl(url);
+        } catch {
+          setDocNote("The stored document could not be opened.");
+        }
       })
       .catch((e) =>
         setError(e instanceof Error ? e.message : "Failed to load invoice.")
@@ -151,11 +160,9 @@ export default function Review() {
 
       <div className="review-body">
         <div className="pane doc">
-          {docUrl ? (
-            <iframe title="Source document" src={docUrl} />
-          ) : (
-            <p className="muted">Loading document...</p>
-          )}
+          {docUrl && <iframe title="Source document" src={docUrl} />}
+          {!docUrl && docNote && <p className="docnote">{docNote}</p>}
+          {!docUrl && !docNote && <p className="docnote">Loading document...</p>}
         </div>
         <div className="pane form">
           <div className="grid2">

@@ -30,6 +30,8 @@ public class GeminiInvoiceExtractor : IInvoiceExtractor
         _logger = logger;
     }
 
+    private TimeSpan RetryDelay(int attempt) =>
+        TimeSpan.FromSeconds(_options.RetryBaseSeconds * Math.Pow(2, attempt - 1));
     private const string PromptText = """
         You are an expert accounting assistant extracting data from a supplier invoice.
         The invoice may be written in French, Arabic or English, and may come from Tunisia
@@ -93,7 +95,6 @@ public class GeminiInvoiceExtractor : IInvoiceExtractor
           "required": ["invoice_number", "total", "currency"]
         }
         """;
-
     public async Task<ExtractionResultDto> ExtractAsync(
         Stream document,
         string mimeType,
@@ -127,9 +128,9 @@ public class GeminiInvoiceExtractor : IInvoiceExtractor
 
                 if (IsTransient(response.StatusCode) && attempt <= _options.MaxRetries)
                 {
-                    var delay = TimeSpan.FromSeconds(Math.Pow(2, attempt));
+                    var delay = RetryDelay(attempt);
                     _logger.LogWarning(
-                        "Gemini returned {Status}. Attempt {Attempt} of {Max}. Retrying in {Delay}s.",
+                        "Gemini returned {Status}. Attempt {Attempt} of {Max}. Waiting {Delay}s before retrying.",
                         (int)response.StatusCode, attempt, _options.MaxRetries, delay.TotalSeconds);
                     await Task.Delay(delay, ct);
                     continue;
@@ -138,27 +139,29 @@ public class GeminiInvoiceExtractor : IInvoiceExtractor
                 _logger.LogError("Gemini call failed with {Status}: {Body}",
                     (int)response.StatusCode, Truncate(body));
 
-                return new ExtractionResultDto(false, null, null,
-                    $"Gemini returned HTTP {(int)response.StatusCode}.");
+                var reason = response.StatusCode == HttpStatusCode.TooManyRequests
+                    ? "Gemini rate limit reached. Try again in a minute."
+                    : $"Gemini returned HTTP {(int)response.StatusCode}.";
+
+                return new ExtractionResultDto(false, null, null, reason);
             }
             catch (TaskCanceledException) when (!ct.IsCancellationRequested
                                                 && attempt <= _options.MaxRetries)
             {
-                var delay = TimeSpan.FromSeconds(Math.Pow(2, attempt));
-                _logger.LogWarning("Gemini call timed out. Attempt {Attempt}. Retrying in {Delay}s.",
+                var delay = RetryDelay(attempt);
+                _logger.LogWarning("Gemini call timed out. Attempt {Attempt}. Waiting {Delay}s.",
                     attempt, delay.TotalSeconds);
                 await Task.Delay(delay, ct);
             }
             catch (HttpRequestException ex) when (attempt <= _options.MaxRetries)
             {
-                var delay = TimeSpan.FromSeconds(Math.Pow(2, attempt));
-                _logger.LogWarning(ex, "Network error calling Gemini. Attempt {Attempt}. Retrying in {Delay}s.",
+                var delay = RetryDelay(attempt);
+                _logger.LogWarning(ex, "Network error calling Gemini. Attempt {Attempt}. Waiting {Delay}s.",
                     attempt, delay.TotalSeconds);
                 await Task.Delay(delay, ct);
             }
         }
     }
-
     private string BuildPayload(string base64, string mimeType)
     {
         var blockType = mimeType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)

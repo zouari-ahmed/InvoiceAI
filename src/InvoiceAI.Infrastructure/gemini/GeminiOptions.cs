@@ -10,4 +10,6 @@ public class GeminiOptions
     public string ApiRevision { get; set; } = "2026-05-20";
     public int TimeoutSeconds { get; set; } = 120;
     public int MaxRetries { get; set; } = 3;
+    public int RetryBaseSeconds { get; set; } = 15;
+    public int DelayBetweenJobsSeconds { get; set; } = 5;
 }
