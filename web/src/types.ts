@@ -47,3 +47,18 @@ export type UploadResult = {
   accepted: { invoiceId: number; fileName: string; sizeBytes: number }[];
   rejected: { fileName: string; reason: string }[];
 };
+export type StatusCount = { status: string; count: number };
+
+export type SupplierStat = { supplier: string; count: number; total: number };
+
+export type DashboardStats = {
+  totalInvoices: number;
+  totalAmount: number;
+  currency: string;
+  byStatus: StatusCount[];
+  topSuppliers: SupplierStat[];
+  accuracySampleSize: number;
+  fieldsCompared: number;
+  fieldsCorrect: number;
+  accuracyRate: number | null;
+};

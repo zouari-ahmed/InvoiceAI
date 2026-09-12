@@ -118,3 +118,8 @@ table.lines td:nth-child(n+2):nth-child(-n+5) { width: 90px; }
 .filelist li { margin: 3px 0; }
 .page h3 { font-size: 14px; margin: 22px 0 8px; }
 .docnote { color: #cfd4da; padding: 24px; font-size: 14px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 8px; }
+.card.stat { padding: 18px; gap: 4px; max-width: none; }
+.stat-label { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; }
+.stat-value { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat-note { font-size: 12px; color: var(--muted); }

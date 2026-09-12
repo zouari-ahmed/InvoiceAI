@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { listInvoices, setToken } from "../api";
 import type { InvoiceSummary } from "../types";
 
@@ -29,9 +29,11 @@ export default function Invoices() {
     <div className="page">
       <div className="bar">
         <h1>Invoices</h1>
-        <button className="linkish" onClick={logout}>
-          Sign out
-        </button>
+        <div className="head-right">
+          <Link to="/dashboard" className="linkish">Dashboard</Link>
+          <Link to="/upload" className="linkish">Upload</Link>
+          <button className="linkish" onClick={logout}>Sign out</button>
+        </div>
       </div>
 
       {error && <div className="error">{error}</div>}

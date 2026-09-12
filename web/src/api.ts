@@ -87,3 +87,6 @@ export async function fetchFileBlobUrl(id: number): Promise<string> {
   const blob = await response.blob();
   return URL.createObjectURL(blob);
 }
+export function getStats() {
+  return request<import("./types").DashboardStats>("/stats");
+}
