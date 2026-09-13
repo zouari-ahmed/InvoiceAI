@@ -90,3 +90,33 @@ export async function fetchFileBlobUrl(id: number): Promise<string> {
 export function getStats() {
   return request<import("./types").DashboardStats>("/stats");
 }
+export async function downloadExport(format: "csv" | "xlsx" | "json") {
+  const token = getToken();
+
+  const response = await fetch(`${BASE}/export?format=${format}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+
+  if (!response.ok) {
+    throw new Error("Export failed.");
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `invoices.${format}`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  URL.revokeObjectURL(url);
+}
+export function searchInvoices(params: Record<string, string>) {
+  const entries = Object.entries(params).filter(([, v]) => v !== "" && v != null);
+  const qs = new URLSearchParams(entries).toString();
+  return request<import("./types").InvoiceSummary[]>(
+    `/invoices${qs ? `?${qs}` : ""}`
+  );
+}

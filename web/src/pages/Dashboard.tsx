@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getStats } from "../api";
+import { downloadExport, getStats } from "../api";
 import type { DashboardStats } from "../types";
 
 export default function Dashboard() {
@@ -19,6 +19,14 @@ export default function Dashboard() {
     return `${value.toFixed(3)} ${currency}`;
   }
 
+  async function exportAs(format: "csv" | "xlsx" | "json") {
+    try {
+      await downloadExport(format);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Export failed.");
+    }
+  }
+
   return (
     <div className="page">
       <div className="bar">
@@ -27,6 +35,13 @@ export default function Dashboard() {
           <Link to="/" className="linkish">Invoices</Link>
           <Link to="/upload" className="linkish">Upload</Link>
         </div>
+      </div>
+
+      <div className="exportbar">
+        <span className="muted">Export reviewed invoices:</span>
+        <button className="linkish" onClick={() => exportAs("csv")}>CSV</button>
+        <button className="linkish" onClick={() => exportAs("xlsx")}>Excel</button>
+        <button className="linkish" onClick={() => exportAs("json")}>JSON</button>
       </div>
 
       {error && <div className="error">{error}</div>}

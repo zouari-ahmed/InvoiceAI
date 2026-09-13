@@ -41,11 +41,56 @@ public class InvoicesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<InvoiceSummaryDto>>> GetAll(CancellationToken ct)
+    public async Task<ActionResult<IEnumerable<InvoiceSummaryDto>>> GetAll(
+    [FromQuery] InvoiceFilterDto filter,
+    CancellationToken ct)
     {
-        var invoices = await _db.Invoices
+        var query = _db.Invoices
             .AsNoTracking()
             .Include(i => i.Supplier)
+            .AsQueryable();
+
+        if (filter.From is not null)
+        {
+            query = query.Where(i => i.IssueDate != null && i.IssueDate >= filter.From);
+        }
+
+        if (filter.To is not null)
+        {
+            query = query.Where(i => i.IssueDate != null && i.IssueDate <= filter.To);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Supplier))
+        {
+            var supplier = filter.Supplier.Trim();
+            query = query.Where(i => i.Supplier != null && i.Supplier.Name.Contains(supplier));
+        }
+
+        if (filter.MinTotal is not null)
+        {
+            query = query.Where(i => i.Total >= filter.MinTotal);
+        }
+
+        if (filter.MaxTotal is not null)
+        {
+            query = query.Where(i => i.Total <= filter.MaxTotal);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Status)
+            && Enum.TryParse<InvoiceStatus>(filter.Status, true, out var status))
+        {
+            query = query.Where(i => i.Status == status);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Search))
+        {
+            var term = filter.Search.Trim();
+            query = query.Where(i =>
+                (i.InvoiceNumber != null && i.InvoiceNumber.Contains(term))
+                || (i.Supplier != null && i.Supplier.Name.Contains(term)));
+        }
+
+        var invoices = await query
             .OrderByDescending(i => i.CreatedAt)
             .ToListAsync(ct);
 
